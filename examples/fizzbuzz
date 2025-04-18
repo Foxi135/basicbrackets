@@ -1,0 +1,17 @@
+fizzbuzz 100
+
+(def fizzbuzz {result
+    (var i 0)
+    (loop (amount) {
+        (var i (i)|(+ 1))
+        (var result (result)|(join 
+            (or
+                (and (i)|(mod 15)|(= 0) fizzbuzz)
+                (and (i)|(mod 3)|(= 0) fizz)
+                (and (i)|(mod 5)|(= 0) buzz)
+                (i)
+            )
+            " "
+        ))
+    })
+} amount i result)

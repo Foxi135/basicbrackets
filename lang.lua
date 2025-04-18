@@ -1,7 +1,46 @@
+local lang = {}
+
+local function parse(tokens)
+    local result = {}
+    while #tokens > 0 do
+        local token = table.remove(tokens,1)
+        if token == "(" then
+            table.insert(result, parse(tokens))
+        elseif token == ")" then
+            break
+        else
+            table.insert(result, token)
+        end
+    end
+    local i = 0
+    while #result>=i do
+        i = i+1
+        local a,b,c = result[i-1],result[i],result[i+1]
+        if b == "|" and type(a) == "table" and type(c) == "table" then
+            table.insert(result[i+1],2,result[i-1])
+            table.remove(result,i)
+            table.remove(result,i-1)
+            i = i-3
+        end
+        if b == "." and type(a) == "table" and c ~= nil then
+            result[i+1] = {"index",a,c}
+            table.remove(result,i)
+            table.remove(result,i-1)
+            i = i-3
+        end
+        if --[[result[1] == "}L" and]] b == ":" and (type(a) ~= "table" and a ~= nil) and c ~= nil then
+            result[a] = c
+            table.remove(result,i+1)
+            table.remove(result,i)
+            table.remove(result,i-1)
+            i = i-3
+        end
+    end
+    return result
+end
 
 
-function deserialize(code)
-    functions.log({code},"> ")
+function lang.deserialize(code)
     local tokens = {""}
     local isString = false
     local partOfString = {}
@@ -19,11 +58,12 @@ function deserialize(code)
 
         elseif isString and char=="\\" then
             i = i + 1
-            tokens[#tokens] = tokens[#tokens] ..(code:sub(i, i) or "")
-
+            local c = code:sub(i, i) or ""
+            if c == "n" then c = "\n" end
+            tokens[#tokens] = tokens[#tokens] .. c
         elseif not isString and char==" " then
             table.insert(tokens, "")
-        elseif not isString and (char=="(" or char==")") then
+        elseif not isString and (char=="(" or char==")" or char=="." or char=="|" or char == ":") then
             table.insert(tokens,char)
             table.insert(tokens,"")
         elseif not isString and char == "[" then
@@ -49,8 +89,13 @@ function deserialize(code)
     end
 
     local finalTokens = {}
+    local isComment
     for i, v in ipairs(tokens) do
-        if v~="" or partOfString[i] then
+        if v == "/*" and not partOfString[i] then
+            isComment = true
+        elseif v == "*/" and not partOfString[i] then
+            isComment = false
+        elseif (v~="" or partOfString[i]) and not isComment then
             table.insert(finalTokens,v)
         end
     end
@@ -69,57 +114,64 @@ function deserialize(code)
     return parse(finalTokens)
 end
 
-function parse(tokens)
-    local result = {}
-    while #tokens > 0 do
-        local token = table.remove(tokens,1)
-        if token == "(" then
-            table.insert(result, parse(tokens))
-        elseif token == ")" then
-            break
-        else
-            table.insert(result, token)
-        end
-    end
-    return result
-end
 
-function normalizeValueType(value)
+
+
+local function normalizeValueType(value) -- normalize and remove references
     local valueType = type(value)
 
     if valueType == "number" then
-        return value ~= value and 0 or value -- NaN check
+        return (value ~= value and 0 or value)+0 -- NaN check
     elseif valueType == "string" then
         local parsedNumber = tonumber(value)
-        return parsedNumber or value
+        return parsedNumber or (value.."")
     elseif valueType == "boolean" then
-        return value
+        return value and true or false
     elseif valueType == "table" then
         return value
     end
 
     return 0
 end
-ignore = {["}R"]=true}
-function execute(code,pos)
+
+
+
+local ignore = {["}R"]=true}
+function lang.run(code,pos)
     if type(code)~="table" then return code end
+    local variables,definitioninputs,functions = lang.variables,lang.definitioninputs,lang.functions
     local inputs = {}
     local name;
+    local indexbreak = 1 -- tracking if the index breaks
     for k, v in pairs(code) do
-        local result;
-        if type(v)=="table" and not ignore[name or ""] then
-            result = execute(v,pos)
+        local result,shouldunpack;
+        if (type(v)=="table") and not ignore[name or ""] then
+            result = {lang.run(v,pos)}
         else
-            result = v
+            result = {v}
         end
         if k == 1 then
-            name = result
+            name = result[1]
         else
-            table.insert(inputs,result)
+            if type(k) == "number" then
+                if indexbreak then
+                    if k == indexbreak+1 then
+                        for k, v in pairs(result) do
+                            inputs[indexbreak] = v
+                            indexbreak = indexbreak+1
+                        end
+                    else
+                        inputs[k] = result[1]
+                        indexbreak = false
+                    end
+                end
+            else
+                inputs[k] = result[1]
+            end
         end
     end
     if functions[name] then return functions[name](inputs,pos) end
-    if definitioninputs[name] then
+    if definitioninputs[name] and variables[name] then
         local h = {}
         for k, v in pairs(definitioninputs[name]) do
             local t = type(variables[v]) --removing potential references
@@ -132,17 +184,17 @@ function execute(code,pos)
             end
             variables[v] = inputs[k]
         end
-        local r = execute(variables[name],pos)
+        local r = {lang.run(variables[name],pos or "")}
         for k, v in pairs(h) do
             variables[k] = v
         end
-        return r
+        return unpack(r)
     end
     if variables[name] then return variables[name] end
 end
-definitioninputs = {}
-variables = {L={G=_G,ENV=_ENV,LUAVER=_VERSION}}
-functions = {
+lang.definitioninputs = {}
+lang.variables = {L={G=_G,ENV=_ENV,LUAVER=_VERSION},PRINTLOGS=true}
+lang.functions = {
     log = function(inputs,decor)
         local t = {}
         for k, v in pairs(inputs) do
@@ -152,17 +204,69 @@ functions = {
                 t[k] = inspect(v)
             end
         end
-        print(unpack(t))
+        if lang.variables.PRINTLOGS then
+            print(unpack(t))
+        end
     end,
     ["while"] = function(inputs,pos)
-        while execute(inputs[1],pos) do
-            execute(inputs[2],pos)
+        while lang.run(inputs[1],pos) do
+            lang.run(inputs[2],pos)
+        end
+    end,
+    ["if"] = function(inputs,pos)
+        local l = math.floor(#inputs/2)*2
+        if inputs.lazy then
+            for i = 2, l, 2 do
+                if lang.run(inputs[i-1]) then
+                    return lang.run(inputs[i],pos)
+                end
+            end
+            if inputs[l+1] and lang.run(inputs[l+1]) then
+                return lang.run(inputs[l+1],pos)
+            end
+        else
+            for i = 2, l, 2 do
+                if inputs[i-1] then
+                    return lang.run(inputs[i],pos)
+                end
+            end
+            if inputs[l+1] then
+                return lang.run(inputs[l+1],pos)
+            end
         end
     end,
     loop = function(inputs,pos)
         for i = 1, inputs[1] do
-            execute(inputs[2],pos)
+            lang.run(inputs[2],pos)
         end
+    end,
+    ["or"] = function(inputs)
+        for k, v in pairs(inputs) do
+            if v then
+                return v
+            end
+        end
+        return false
+    end,
+    ["and"] = function(inputs)
+        for k, v in ipairs(inputs) do
+            if not v then
+                return v
+            end
+        end
+        return inputs[#inputs]
+    end,
+    ["not"] = function(inputs)
+        return not inputs[1]
+    end,
+    ["type"] = function(inputs)
+        return type(inputs[1])
+    end,
+    ["="] = function(inputs)
+        for k, v in pairs(inputs) do
+            if inputs[1]~=v then return false end
+        end
+        return true
     end,
     ["+"] = function(inputs)
         local result = 0
@@ -203,6 +307,16 @@ functions = {
         end
         return result
     end,
+    ["mod"] = function(inputs)
+        local result
+        for k, v in pairs(inputs) do
+            if type(v) == "number" then
+                if not result then result = v+0
+                else result = result%v end
+            end
+        end
+        return result
+    end,
     ["join"] = function(inputs)
         local result = ""
         for k, v in pairs(inputs) do
@@ -237,33 +351,47 @@ functions = {
     cls = function(inputs) log = {} end,
 
     clearvars = function()
-        definitioninputs = {}
-        variables = {}
+        lang.definitioninputs = {}
+        lang.variables = {}
     end,
     delete = function(inputs)
         for k, v in pairs(inputs) do            
-            definitioninputs[k] = nil
-            variables[k] = nil
+            lang.definitioninputs[k] = nil
+            lang.variables[k] = nil
         end
     end,
     var = function(inputs)
         if inputs[2] == nil then
-            return variables[inputs[1]]
+            return lang.variables[inputs[1]]
         else
-            variables[inputs[1]] = inputs[2]
+            local l = math.floor(#inputs/2)
+            for i = 1, l do
+                lang.variables[inputs[i]] = inputs[i+l]
+            end
         end
     end,
     def = function(inputs)
-        variables[inputs[1]] = inputs[2]
-        definitioninputs[inputs[1]] = {}
+        lang.variables[inputs[1]] = inputs[2]
+        lang.definitioninputs[inputs[1]] = {}
         for k, v in pairs(inputs) do
             if k>2 then
-                table.insert(definitioninputs[inputs[1]],v)
+                table.insert(lang.definitioninputs[inputs[1]],v)
             end
         end
     end,
 
-    lfe = function(inputs) -- lua function execute
+    lfe = function(inputs)
         return inputs[1](unpack(inputs,2))
+    end,
+    exec = function(inputs)
+        return lang.run(inputs[1])
+    end,
+
+    normalize = function(inputs)
+        return normalizeValueType(inputs[1])
     end
 }
+
+
+
+return lang

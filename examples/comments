@@ -1,0 +1,8 @@
+/* comment */
+/* it can be
+            multiline, ofc */
+
+
+/* make sure to put spaces at each end: */
+(log /* im inconspicuous */)
+(log /*am i so inconspicuous too?*/)

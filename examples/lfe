@@ -1,0 +1,18 @@
+/* lfe: lua function execute */
+
+(def sformat {lfe (L).G.string.format (u (args))} args)
+
+(def ask {return
+    (lfe (L).G.io.write (question)|(join " > "))
+    (var return (lfe (L).G.io.read))
+} question)
+
+
+(var name (ask "What's your name?"))
+
+
+(if (name)|(= Tony) {
+    (log "Fuck you, Tony!")
+} {
+    (log ["Hi %s, nice to meet you! ^^" (name)]|(sformat))
+})

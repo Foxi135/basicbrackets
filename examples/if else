@@ -1,0 +1,88 @@
+(var x 3)
+
+
+
+
+
+(log "one: normal if with code blocks")
+
+(if (x)|(= 1) {
+    log one
+} (x)|(= 2) {
+    log two
+} (x)|(= 3) {
+    log three
+} (x)|(= 4) {
+    log four
+} (x)|(= 5) {
+    log five
+} {
+    log "idk that number"
+})
+
+
+
+
+
+(log)
+(log "two: normal if without code blocks")
+(log "(can be useful as inline if)")
+
+(if (x)|(= 1) one
+    (x)|(= 2) two
+    (x)|(= 3) three
+    (x)|(= 4) four
+    (x)|(= 5) five
+    "idk that number"
+)|(log)
+
+
+
+
+
+
+(log)
+(log "three: lazy if with code blocks")
+(log "(will not evaulate all conditions)")
+/* 
+    pipe cannot be used here.
+    only when you need the whole statement in a bracket:
+    (x)|(+ 10) -> (+ (x) 10)
+*/
+
+(if {= 1 (x)} {
+    log one
+} {= 2 (x)} {
+    log two
+} {= 3 (x)} {
+    log three
+} {= 4 (x)} {
+    log four
+} {= 5 (x)} {
+    log five
+} {
+    log "idk that number"
+} lazy: true)
+
+
+
+
+
+(log)
+(log "four: lazy if without code blocks")
+
+(if {= 1 (x)} one
+    {= 2 (x)} two
+    {= 3 (x)} three
+    {= 4 (x)} four
+    {= 5 (x)} five
+    "idk that number"
+lazy: true)|(log)
+
+
+
+
+
+(log)
+(log "ofc, these are only for examples. you can use arrays for this:")
+[one two three four five].(x)|(log)

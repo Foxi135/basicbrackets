@@ -1,0 +1,22 @@
+(def assert {lfe (L).G.assert (condition) (error)} condition error)
+
+
+(var table [a b c year:2025])
+
+(def foreach {
+    (assert (= (table)|(type) "table") (join "foreach: first argument is " (table)|(type) ", expected table"))
+    (assert (= (code)|(type) "table") (join "foreach: second argument is " (code)|(type) ", expected table (code)"))
+    (assert (= (keyname)|(type) "string") (join "foreach: third argument is " (keyname)|(type) ", expected string (variable name for table keys)"))
+    (var hold [(lfe (L).G.next (table))])
+    (while {not (= (hold).1|(type) "nil")} {
+        (var (keyname) (hold).1)
+        (var (valuename) (hold).2)
+        (exec (code))
+        (var hold [(lfe (L).G.next (table) (keyname)|(var))])
+    })
+} table code keyname valuename hold)
+
+
+(foreach (table) {
+    (log (k) (v))
+} k v)

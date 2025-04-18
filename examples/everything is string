@@ -1,0 +1,8 @@
+( "(" join l o "g") "(" "+" "50" "2" ")" )
+
+/* i might fix this, but here is a workaround to printing brackets and other operators: */
+(var brackets "()[]{}.:| ")
+(log (brackets).1)
+(log (brackets).2)
+(log (brackets).3)
+(log (brackets).4)

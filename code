@@ -1,0 +1,49 @@
+/* a liiiitle overcomplicated, but fun :3 */
+(def ask {return
+    (lfe (L).G.io.write (question)|(join " > "))
+    (var return (lfe (L).G.io.read))
+} question)
+
+(def assert {lfe (L).G.assert (condition) (error)} condition error)
+(def foreach {
+    (assert (= (table)|(type) "table") (join "foreach: first argument is " (table)|(type) ", expected table"))
+    (assert (= (code)|(type) "table") (join "foreach: second argument is " (code)|(type) ", expected table (code)"))
+    (assert (= (keyname)|(type) "string") (join "foreach: third argument is " (keyname)|(type) ", expected string (variable name for table keys)"))
+    (var hold [(lfe (L).G.next (table))])
+    (while {not (= (hold).1|(type) "nil")} {
+        (var (keyname) (hold).1)
+        (var (valuename) (hold).2)
+        (exec (code))
+        (var hold [(lfe (L).G.next (table) (keyname)|(var))])
+    })
+} table code keyname valuename hold)
+
+
+(def askvalid {return
+    (var stop false)
+    (while {not (stop)} {
+        (var return (ask (question)))
+        (if (= (options)|(type) "table") { /* by specific options */
+            (foreach (options) {
+                (var stop (stop)|(or (v)|(= (return))))
+            } k v)
+        } { /* by type */
+            (var stop (stop)|(or (return)|(normalize)|(type)|(= (options))))
+        })
+        (if (stop)|(not) {
+            (log "wrong option")
+        })
+    })
+    (var return (return)|(normalize))
+} question options stop)
+
+
+
+
+(var ops [+ - * / mod])
+(while true {
+    (var x (askvalid "left side" "number"))
+    (var op (askvalid "operator" (ops)))
+    (var y (askvalid "right side" "number"))
+    (log (join (x) (op) (y) " = " ((op) (x) (y))) "\n")
+})

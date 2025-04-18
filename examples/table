@@ -1,0 +1,10 @@
+(var t [a b c year: 2025 "index with spaces":"works" (join year n't): 4001])
+
+(t)|(log)
+
+(log (t).1)
+(log (t).2)
+(log (t).yearn't)
+(log (t).year)
+(log (t)."index with spaces")
+(log (t).(join ye ar))
