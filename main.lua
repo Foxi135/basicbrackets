@@ -1,6 +1,7 @@
-unpack = unpack or table.unpack
-lang = require "lang" 
 inspect = require "inspect"
+
+lang = require "lang" 
+lang.serializer = inspect
 
 if love then
     --arg[1] = "examples/fizzbuzz"

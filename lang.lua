@@ -1,5 +1,7 @@
 local lang = {}
 
+local unpack = unpack or table.unpack
+
 local function parse(tokens)
     local result = {}
     while #tokens > 0 do
@@ -201,7 +203,7 @@ lang.functions = {
             if type(v) == "string" then
                 t[k] = v
             else
-                t[k] = inspect(v)
+                t[k] = lang.serializer(v)
             end
         end
         if lang.variables.PRINTLOGS then
@@ -320,7 +322,7 @@ lang.functions = {
     ["join"] = function(inputs)
         local result = ""
         for k, v in pairs(inputs) do
-            result = result..(type(v)=="table" and inspect(v,{newline="", indent=""}) or tostring(v))
+            result = result..(type(v)=="table" and lang.serializer(v,{newline="", indent=""}) or tostring(v))
         end
         return result
     end,
