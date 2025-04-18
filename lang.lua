@@ -391,6 +391,23 @@ lang.functions = {
 
     normalize = function(inputs)
         return normalizeValueType(inputs[1])
+    end,
+    exists = function(inputs)
+        if not inputs[1] then
+            local t = {}
+            for k, v in pairs(lang.functions) do
+                table.insert(t,k)
+            end
+            for k, v in pairs(lang.variables) do
+                table.insert(t,k)
+            end
+            return t
+        elseif type(inputs[1]) == "string" then
+            return 
+                (lang.functions[inputs[1]] and "function") or
+                (lang.definitioninputs[inputs[1]] and "definition") or
+                (lang.variables[inputs[1]] and "variable") or false
+        end
     end
 }
 

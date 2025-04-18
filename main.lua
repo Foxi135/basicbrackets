@@ -3,6 +3,8 @@ inspect = require "inspect"
 lang = require "lang" 
 lang.serializer = inspect
 
+
+
 if love then
     --arg[1] = "examples/fizzbuzz"
     arg[1] = nil
