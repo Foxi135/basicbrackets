@@ -1,5 +1,5 @@
 # basicbrackets
-Very simple lisp-like interpreted scripting language written in lua. Originally made for 1x1.
+Very simple lisp-like interpreted scripting language written in lua, intended for use as a game command language. Originally made for 1x1.
 
 Commands/code can look like this: `fly false` <br>
 ..or like this: `def buildplatform {loop 10 {(var i (i)|(+ 1)) (placetile (tile) (x)|(+ (i)) (y))}} tile x y width` 
