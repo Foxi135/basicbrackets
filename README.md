@@ -22,12 +22,12 @@ lang.serializer = function(value,options)
     -- ...
 end
 ```
-...or and existing library...
+...or use an existing library...
 ```lua
 lang.serializer = require "inspect"
 ```
 ### 3. use it ;p
-make sure to remove newlines
+make sure to remove newline characters
 ```lua
 print(lang.run(lang.deserialize(([[
     loop 10 {
