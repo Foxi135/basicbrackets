@@ -23,7 +23,10 @@ else
         io.write("\n> ")
         local code = io.read()
         print("----")
-        local r = inspect(lang.run(lang.deserialize(code:gsub("\n", " "))))
+        local r = lang.run(lang.deserialize(code:gsub("\n", " ")))
+        if type(r) ~= "string" then
+            r = inspect(r)
+        end
         print("\n< "..r)
     end
 end

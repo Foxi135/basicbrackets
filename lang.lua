@@ -27,6 +27,59 @@ SOFTWARE.
 
 local lang = {}
 
+
+lang.help = [[
+Argument notation: 
+    not required?
+    specifically this value!
+    repeats...
+    {is a code body}
+    [pattern]
+
+This list is not generated automatically!
+
+log ...                                             Prints out everything
+
+while {condition} {body}                            Repeats body while condition evaulates true
+if [condition {body}]... {else}?                    Executes body if preciding condition is true. If none are true and the number of arguments is odd, it executes the last body put in.
+if lazy:true! [{condition} {body}]... {else}?       "lazy" set to true wont execute the other conditions after the true one
+loop n {body}                                       Executes body n amount of times
+
+or ...                                              Returns the first truthy value or the last value
+and ...                                             Returns the first falsy value or the last value
+not x                                               Negates x
+
+= ...                                               Returns true if all values are equal (Wont work on tables, bodies or nan's)
++ ...                                               Sum of all numeric inputs
+* ...                                               Product of all numeric inputs
+- ...                                               Subtracts numeric inputs in order
+/ ...                                               Divides numeric inputs in order
+mod ...                                             Modulus of numeric inputs in order
+join ...                                            Concatenates inputs into a string, serializes tables
+len x                                               Returns length of table, string or tostring(x)
+type x                                              Returns Lua type of x
+normalize x                                         Converts input to a normalized value type (helper)
+
+var varname                                         Gets variable
+var varname... value...                             Sets variable(s). Requires same number of values as variable names
+def name {body} arg...                              Defines a function with named arguments. Argument names will be local to the body of the definition.
+delete varname...                                   Deletes listed keys from variables and definitions
+clearvars                                           Removes all variables and definitions
+
+index x i                                           Access table or string (x) at key or index
+setindex x i value                                  Sets index or key of a table (x) to inputed value 
+
+exists name?                                        Returns type of name ("function", "variable", etc) or list of all
+exec body                                           Executes body
+u table                                             Unpacks table
+
+}R x                                                (INTERNAL FUNCTION) Returns the first value without processing
+}L ...                                              (INTERNAL FUNCTION) Returns all values as a table
+
+L                                                   Returns Lua variabes - {G = _G, ENV = _ENV, LUAVER = _VERSION}
+lfe luafunc arg...                                  Calls a raw Lua function with arguments ("lfe" - "lua function execute")
+]]
+
 local unpack = unpack or table.unpack
 
 local function parse(tokens)
@@ -166,7 +219,7 @@ end
 
 
 local ignore = {["}R"]=true}
-function lang.run(code,pos)
+function lang.run(code,data)
     if type(code)~="table" then return code end
     local variables,definitioninputs,functions = lang.variables,lang.definitioninputs,lang.functions
     local inputs = {}
@@ -175,7 +228,7 @@ function lang.run(code,pos)
     for k, v in pairs(code) do
         local result,shouldunpack;
         if (type(v)=="table") and not ignore[name or ""] then
-            result = {lang.run(v,pos)}
+            result = {lang.run(v,data)}
         else
             result = {v}
         end
@@ -199,7 +252,7 @@ function lang.run(code,pos)
             end
         end
     end
-    if functions[name] then return functions[name](inputs,pos) end
+    if functions[name] then return functions[name](inputs,data) end
     if definitioninputs[name] and variables[name] then
         local h = {}
         for k, v in pairs(definitioninputs[name]) do
@@ -213,7 +266,7 @@ function lang.run(code,pos)
             end
             variables[v] = inputs[k]
         end
-        local r = {lang.run(variables[name],pos or "")}
+        local r = {lang.run(variables[name],data or "")}
         for k, v in pairs(h) do
             variables[k] = v
         end
@@ -234,9 +287,9 @@ end
 
 
 lang.definitioninputs = {}
-lang.variables = {L={G=_G,ENV=_ENV,LUAVER=_VERSION},PRINTLOGS=true}
+lang.variables = {PRINTLOGS=true}
 lang.functions = {
-    log = function(inputs,decor)
+    log = function(inputs,data)
         local t = {}
         for k, v in pairs(inputs) do
             if type(v) == "string" then
@@ -249,45 +302,46 @@ lang.functions = {
             print(unpack(t))
         end
     end,
-    ["while"] = function(inputs,pos)
-        while lang.run(inputs[1],pos) do
-            lang.run(inputs[2],pos)
+    ["while"] = function(inputs,data)
+        while lang.run(inputs[1],data) do
+            lang.run(inputs[2],data)
         end
     end,
-    ["if"] = function(inputs,pos)
+    ["if"] = function(inputs,data)
         local l = math.floor(#inputs/2)*2
         if inputs.lazy then
             for i = 2, l, 2 do
                 if lang.run(inputs[i-1]) then
-                    return lang.run(inputs[i],pos)
+                    return lang.run(inputs[i],data)
                 end
             end
             if inputs[l+1] and lang.run(inputs[l+1]) then
-                return lang.run(inputs[l+1],pos)
+                return lang.run(inputs[l+1],data)
             end
         else
             for i = 2, l, 2 do
                 if inputs[i-1] then
-                    return lang.run(inputs[i],pos)
+                    return lang.run(inputs[i],data)
                 end
             end
             if inputs[l+1] then
-                return lang.run(inputs[l+1],pos)
+                return lang.run(inputs[l+1],data)
             end
         end
     end,
-    loop = function(inputs,pos)
+    loop = function(inputs,data)
         for i = 1, inputs[1] do
-            lang.run(inputs[2],pos)
+            lang.run(inputs[2],data)
         end
     end,
+
     ["or"] = function(inputs)
         for k, v in pairs(inputs) do
             if v then
                 return v
             end
         end
-        return false
+        return inputs[#inputs]
     end,
     ["and"] = function(inputs)
         for k, v in ipairs(inputs) do
@@ -300,9 +354,8 @@ lang.functions = {
     ["not"] = function(inputs)
         return not inputs[1]
     end,
-    ["type"] = function(inputs)
-        return type(inputs[1])
-    end,
+
+
     ["="] = function(inputs)
         for k, v in pairs(inputs) do
             if inputs[1]~=v then return false end
@@ -373,6 +426,14 @@ lang.functions = {
             return #(tostring(inputs[1]))
         end
     end,
+    type = function(inputs)
+        return type(inputs[1])
+    end,
+    normalize = function(inputs)
+        return normalizeValueType(inputs[1])
+    end,
+
+
     index = function(inputs)
         if type(inputs[1]) == "table" then
             return inputs[1][inputs[2]]
@@ -386,21 +447,8 @@ lang.functions = {
             return inputs[1]
         end
     end,
-    ["}R"] = function(inputs) return inputs[1] end,
-    ["}L"] = function(inputs) return inputs end,
-    u = function(inputs) return unpack(inputs[1]) end,
-    cls = function(inputs) log = {} end,
 
-    clearvars = function()
-        lang.definitioninputs = {}
-        lang.variables = {}
-    end,
-    delete = function(inputs)
-        for k, v in pairs(inputs) do            
-            lang.definitioninputs[k] = nil
-            lang.variables[k] = nil
-        end
-    end,
+
     var = function(inputs)
         if inputs[2] == nil then
             return lang.variables[inputs[1]]
@@ -420,17 +468,18 @@ lang.functions = {
             end
         end
     end,
+    delete = function(inputs)
+        for k, v in pairs(inputs) do            
+            lang.definitioninputs[k] = nil
+            lang.variables[k] = nil
+        end
+    end,
+    clearvars = function()
+        lang.definitioninputs = {}
+        lang.variables = {}
+    end,
 
-    lfe = function(inputs)
-        return inputs[1](unpack(inputs,2))
-    end,
-    exec = function(inputs)
-        return lang.run(inputs[1])
-    end,
 
-    normalize = function(inputs)
-        return normalizeValueType(inputs[1])
-    end,
     exists = function(inputs)
         if not inputs[1] then
             local t = {}
@@ -447,8 +496,28 @@ lang.functions = {
                 (lang.definitioninputs[inputs[1]] and "definition") or
                 (lang.variables[inputs[1]] and "variable") or false
         end
+    end,
+    exec = function(inputs,data)
+        return lang.run(inputs[1]),data
+    end,
+    u = function(inputs) return unpack(inputs[1]) end,
+
+    ["}R"] = function(inputs) return inputs[1] end,
+    ["}L"] = function(inputs) return inputs end,
+
+
+    
+    help = function()
+        lang.functions.log({lang.help..""})
+    end,
+    lfe = function(inputs)
+        return inputs[1](unpack(inputs,2))
+    end,
+    L = function()
+        return {G=_G,ENV=_ENV,LUAVER=_VERSION}
     end
 }
+
 
 
 
